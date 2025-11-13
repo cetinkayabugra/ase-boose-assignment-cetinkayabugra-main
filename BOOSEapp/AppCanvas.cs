@@ -1,88 +1,111 @@
-﻿using BOOSE;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Drawing;
+using BOOSE;
 
 namespace BOOSEapp
 {
-    internal class AppCanvas : ICanvas
+    /// <summary>
+    /// Implementation of BOOSE ICanvas for drawing on a Bitmap.
+    /// No restrictions – everything draws normally.
+    /// </summary>
+    public class AppCanvas : ICanvas
     {
-        Bitmap CanvasBitmap;
-        Graphics g;
-        private int xPos, yPos; //pen positino
-        Pen Pen;
+        private Bitmap canvasBitmap;
+        private Graphics g;
+        private Pen pen = new Pen(Color.Black);
 
+        private int xPos;
+        private int yPos;
 
-
-        public AppCanvas(int xsize , int ysize)
+        public AppCanvas(int width, int height)
         {
-            CanvasBitmap = new Bitmap(xsize , ysize);
-            g = Graphics.FromImage(CanvasBitmap);
-            Xpos = 100;
-            Ypos = 100;
-            Pen = new Pen(Color.Black);
+            canvasBitmap = new Bitmap(width, height);
+            g = Graphics.FromImage(canvasBitmap);
+            Clear();
         }
+
         public int Xpos { get => xPos; set => xPos = value; }
         public int Ypos { get => yPos; set => yPos = value; }
-        public object PenColour { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
-        public void Circle(int radius, bool filled)
+        public object PenColour
         {
-            g.DrawEllipse(Pen, Xpos, Ypos, radius * 2, radius = 2);
-        }
-
-        public void Clear()
-        {
-            
-        }
-
-        public void DrawTo(int x, int y)
-        {
-            //throw new NotImplementedException();
-        }
-
-        public Object getBitmap()
-        {
-            return CanvasBitmap;
+            get => pen.Color;
+            set => pen.Color = (Color)value;
         }
 
         public void MoveTo(int x, int y)
         {
-            Xpos = x;
-            Ypos = y;
+            xPos = x;
+            yPos = y;
+        }
+
+        public void DrawTo(int x, int y)
+        {
+            g.DrawLine(pen, xPos, yPos, x, y);
+            xPos = x;
+            yPos = y;
+        }
+
+        public void Circle(int radius, bool filled)
+        {
+            Rectangle r = new Rectangle(xPos - radius, yPos - radius, radius * 2, radius * 2);
+
+            if (filled)
+                g.FillEllipse(new SolidBrush(pen.Color), r);
+
+            g.DrawEllipse(pen, r);
         }
 
         public void Rect(int width, int height, bool filled)
         {
-            throw new NotImplementedException();
-        }
+            Rectangle r = new Rectangle(xPos, yPos, width, height);
 
-        public void Reset()
-        {
-            Xpos = 100;
-            Ypos = 100;
-        }
+            if (filled)
+                g.FillRectangle(new SolidBrush(pen.Color), r);
 
-        public void Set(int width, int height)
-        {
-            throw new NotImplementedException();
-        }
-
-        public void SetColour(int red, int green, int blue)
-        {
-            throw new NotImplementedException();
+            g.DrawRectangle(pen, r);
         }
 
         public void Tri(int width, int height)
         {
-            throw new NotImplementedException();
+            Point p1 = new Point(xPos + width / 2, yPos);
+            Point p2 = new Point(xPos, yPos + height);
+            Point p3 = new Point(xPos + width, yPos + height);
+
+            g.DrawPolygon(pen, new[] { p1, p2, p3 });
         }
 
         public void WriteText(string text)
         {
-            throw new NotImplementedException();
+            g.DrawString(text, SystemFonts.DefaultFont, new SolidBrush(pen.Color), xPos, yPos);
+        }
+
+        public void SetColour(int r, int g2, int b)
+        {
+            pen.Color = Color.FromArgb(r, g2, b);
+        }
+
+        public void Clear()
+        {
+            g.Clear(Color.Gray);
+        }
+
+        public void Reset()
+        {
+            xPos = 0;
+            yPos = 0;
+            pen.Color = Color.Black;
+        }
+
+        public void Set(int width, int height)
+        {
+            canvasBitmap = new Bitmap(width, height);
+            g = Graphics.FromImage(canvasBitmap);
+            Clear();
+        }
+
+        public object getBitmap()
+        {
+            return canvasBitmap;
         }
     }
 }

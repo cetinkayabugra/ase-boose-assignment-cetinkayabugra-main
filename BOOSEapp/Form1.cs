@@ -1,50 +1,50 @@
-using BOOSE;
+﻿using System;
 using System.Diagnostics;
-using System.Drawing;
+using System.Linq;
 using System.Windows.Forms;
+using BOOSE;
 
 namespace BOOSEapp
 {
     public partial class Form1 : Form
     {
-        private AppCanvas canvas;
-        CommandFactory Factory;
-        StoredProgram Program;
-        IParser Parser;
-
+        private AppCanvas canvas = null!;
+        private AppCommandFactory factory = null!;
+        private StoredProgram program = null!;
+        private Parser parser = null!;
 
         public Form1()
         {
             InitializeComponent();
-
-            // smoother repainting
             this.DoubleBuffered = true;
-
-            // Hook the Paint event
-            this.Paint += Form1_Paint;
-
-            // BOOSE about() (ok to keep)
-            Debug.WriteLine(AboutBOOSE.about());
-
-            // Create our canvas and draw a circle
-            canvas = new AppCanvas(640, 480);
-
-            // Put pen at centre, then draw a filled circle radius 100
-            canvas.MoveTo(320, 240);
-            canvas.Circle(100, true);
-
-            // Request a repaint
-            this.Invalidate();
-            Program = new StoredProgram(canvas);
-            Parser = new Parser(Factory, Program);
-            
         }
 
-        private void Form1_Paint(object sender, PaintEventArgs e)
+        private void btnRun_Click(object sender, EventArgs e)
         {
-            Graphics g = e.Graphics;
-            var b = (Bitmap)canvas.getBitmap();
-            g.DrawImageUnscaled(b, 0, 0);
+            canvas = new AppCanvas(picCanvas.Width, picCanvas.Height);
+            factory = new AppCommandFactory();
+            program = new StoredProgram(canvas);
+            parser = new Parser(factory, program);
+            Debug.WriteLine(AboutBOOSE.about());
+
+            try
+            {
+                string cleaned = string.Join("\n",
+                    txtProgram.Text
+                        .Replace("\r", "")
+                        .Split('\n')
+                        .Where(l => l.Trim().Length > 0)
+                );
+
+                parser.ParseProgram(cleaned);
+                program.Run();
+
+                picCanvas.Image = (Bitmap)canvas.getBitmap();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(ex.Message, "Runtime error");
+            }
         }
     }
 }
