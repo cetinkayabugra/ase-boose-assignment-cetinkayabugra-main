@@ -76,5 +76,22 @@ These are for convinience. Check on myBeckett in the Assessment directory for an
 
 	Remember that BOOSE.DLL maybe updated, as it may have bugs in it, or new features may be added.  
 	Keep updated on Discord and make sure you always have the latest version in your project.
+
+
+
+
+## How to Run
+
+1. Open the solution in Visual Studio
+2. Build the solution (Ctrl + Shift + B)
+3. Run the application
+4. Enter BOOSE commands into the input window
+5. Click Run to execute the program
+
+
+
+
+
+
  
 ### V1.0
