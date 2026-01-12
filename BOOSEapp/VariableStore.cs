@@ -110,11 +110,13 @@ namespace BOOSEapp
         public bool HasRealArray(string name) => _realArrays.ContainsKey(Key(name));
 
         // Get value of any type (for expressions)
+        // Get value of any type (for expressions)
         public double GetValue(string name)
         {
             var key = Key(name);
             if (_ints.TryGetValue(key, out var intVal)) return intVal;
             if (_reals.TryGetValue(key, out var realVal)) return realVal;
+            if (_booleans.TryGetValue(key, out var boolVal)) return boolVal ? 1.0 : 0.0;
             throw new Exception($"Variable '{name}' not found");
         }
 

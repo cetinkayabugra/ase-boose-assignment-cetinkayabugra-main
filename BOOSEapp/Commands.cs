@@ -22,7 +22,6 @@ namespace BOOSEapp
 
             _name = parts[1];
 
-            // int x = 50 or int x = 2*radius
             if (parts.Length >= 4 && parts[2] == "=")
             {
                 _expression = string.Join(" ", parts.Skip(3));
@@ -67,41 +66,6 @@ namespace BOOSEapp
             if (_expression != null)
                 value = _evaluator.Evaluate(_expression);
             _variables.SetReal(_name, value);
-        }
-    }
-
-    public class BooleanCommand : ISimpleCommand
-    {
-        private readonly VariableStore _variables;
-        private readonly ExpressionEvaluator _evaluator;
-        private readonly string _name;
-        private readonly string? _expression;
-
-        public BooleanCommand(VariableStore variables, ExpressionEvaluator evaluator, string[] parts)
-        {
-            _variables = variables;
-            _evaluator = evaluator;
-
-            if (parts.Length < 2)
-                throw new Exception("boolean requires a variable name");
-
-            _name = parts[1];
-
-            if (parts.Length >= 4 && parts[2] == "=")
-            {
-                _expression = string.Join(" ", parts.Skip(3));
-            }
-        }
-
-        public void Execute()
-        {
-            bool value = false;
-            if (_expression != null)
-            {
-                var result = _evaluator.Evaluate(_expression);
-                value = Math.Abs(result) > 0.0001;
-            }
-            _variables.SetBoolean(_name, value);
         }
     }
 
@@ -432,7 +396,6 @@ namespace BOOSEapp
             _variables = variables;
             _evaluator = evaluator;
 
-            // Extract everything after "write " or "writetext "
             int startIndex = line.IndexOf(' ');
             if (startIndex < 0)
             {
@@ -448,13 +411,11 @@ namespace BOOSEapp
         {
             string output = _text;
 
-            // Handle quoted strings
             if (output.StartsWith("\"") && output.EndsWith("\""))
             {
                 output = output.Substring(1, output.Length - 2);
             }
-            // Handle string concatenation like "£"+y
-            else if (output.Contains("+"))
+            else if (output.Contains("+") && output.Contains("\""))
             {
                 var parts = output.Split('+');
                 output = "";
@@ -467,27 +428,35 @@ namespace BOOSEapp
                     }
                     else
                     {
-                        // It's a variable or expression
-                        double value = _evaluator.Evaluate(trimmed);
-                        output += value.ToString();
+                        output += EvaluateForOutput(trimmed);
                     }
                 }
             }
-            // Handle expressions or variables
             else
             {
-                try
-                {
-                    double value = _evaluator.Evaluate(output);
-                    output = value.ToString();
-                }
-                catch
-                {
-                    // If evaluation fails, output as-is
-                }
+                output = EvaluateForOutput(output);
             }
 
             _canvas.WriteText(output);
+        }
+
+        private string EvaluateForOutput(string expr)
+        {
+            try
+            {
+                expr = expr.Trim();
+                double value = _evaluator.Evaluate(expr);
+
+                if (Math.Abs(value - Math.Round(value)) < 0.0001)
+                {
+                    return ((int)Math.Round(value)).ToString();
+                }
+                return value.ToString();
+            }
+            catch
+            {
+                return expr;
+            }
         }
     }
 
@@ -518,6 +487,397 @@ namespace BOOSEapp
         public void Execute()
         {
             _canvas.Reset();
+        }
+    }
+
+    // ==================== CONTROL FLOW COMMANDS ====================
+
+    public class IfCommand : IControlFlowCommand
+    {
+        private readonly VariableStore _variables;
+        private readonly ExpressionEvaluator _evaluator;
+        private readonly string _condition;
+        private ProgramExecutor? _executor;
+        private int _endLine = -1;
+        private int _elseLine = -1;
+
+        public IfCommand(VariableStore variables, ExpressionEvaluator evaluator, string[] parts)
+        {
+            _variables = variables;
+            _evaluator = evaluator;
+
+            if (parts.Length < 2)
+                throw new Exception("if requires a condition");
+
+            _condition = string.Join(" ", parts.Skip(1));
+        }
+
+        public void SetExecutor(ProgramExecutor executor)
+        {
+            _executor = executor;
+        }
+
+        public void SetEndLine(int endLine)
+        {
+            _endLine = endLine;
+        }
+
+        public void SetElseLine(int elseLine)
+        {
+            _elseLine = elseLine;
+        }
+
+        public void Execute()
+        {
+            if (_executor == null)
+                throw new Exception("Executor not set for if command");
+
+            bool condition = EvaluateCondition(_condition);
+
+            if (!condition)
+            {
+                if (_elseLine >= 0)
+                {
+                    _executor.SetLine(_elseLine);
+                }
+                else if (_endLine >= 0)
+                {
+                    _executor.SetLine(_endLine);
+                }
+            }
+        }
+
+        private bool EvaluateCondition(string condition)
+        {
+            condition = condition.Replace(" ", "");
+
+            if (condition.Contains("=="))
+            {
+                var parts = condition.Split(new[] { "==" }, StringSplitOptions.None);
+                double left = _evaluator.Evaluate(parts[0]);
+                double right = _evaluator.Evaluate(parts[1]);
+                return Math.Abs(left - right) < 0.0001;
+            }
+
+            if (condition.Contains("!="))
+            {
+                var parts = condition.Split(new[] { "!=" }, StringSplitOptions.None);
+                double left = _evaluator.Evaluate(parts[0]);
+                double right = _evaluator.Evaluate(parts[1]);
+                return Math.Abs(left - right) > 0.0001;
+            }
+
+            if (condition.Contains("<="))
+            {
+                var parts = condition.Split(new[] { "<=" }, StringSplitOptions.None);
+                double left = _evaluator.Evaluate(parts[0]);
+                double right = _evaluator.Evaluate(parts[1]);
+                return left <= right;
+            }
+
+            if (condition.Contains(">="))
+            {
+                var parts = condition.Split(new[] { ">=" }, StringSplitOptions.None);
+                double left = _evaluator.Evaluate(parts[0]);
+                double right = _evaluator.Evaluate(parts[1]);
+                return left >= right;
+            }
+
+            if (condition.Contains("<"))
+            {
+                var parts = condition.Split('<');
+                double left = _evaluator.Evaluate(parts[0]);
+                double right = _evaluator.Evaluate(parts[1]);
+                return left < right;
+            }
+
+            if (condition.Contains(">"))
+            {
+                var parts = condition.Split('>');
+                double left = _evaluator.Evaluate(parts[0]);
+                double right = _evaluator.Evaluate(parts[1]);
+                return left > right;
+            }
+
+            double value = _evaluator.Evaluate(condition);
+            return Math.Abs(value) > 0.0001;
+        }
+    }
+
+    public class ForCommand : IControlFlowCommand
+    {
+        private readonly VariableStore _variables;
+        private readonly ExpressionEvaluator _evaluator;
+        private readonly string _varName;
+        private readonly string _startExpr;
+        private readonly string _endExpr;
+        private readonly string _stepExpr;
+        private ProgramExecutor? _executor;
+        private int _startLine = -1;
+        private int _endLine = -1;
+
+        public ForCommand(VariableStore variables, ExpressionEvaluator evaluator, string[] parts)
+        {
+            _variables = variables;
+            _evaluator = evaluator;
+
+            // Parse: for count = 1 to 10 step 2
+            if (parts.Length < 5)
+                throw new Exception("for requires: for var = start to end [step increment]");
+
+            _varName = parts[1];
+
+            // Find "=" "to" and "step"
+            int equalIndex = -1;
+            int toIndex = -1;
+            int stepIndex = -1;
+
+            for (int i = 0; i < parts.Length; i++)
+            {
+                if (parts[i] == "=") equalIndex = i;
+                else if (parts[i].ToLower() == "to") toIndex = i;
+                else if (parts[i].ToLower() == "step") stepIndex = i;
+            }
+
+            if (equalIndex < 0 || toIndex < 0)
+                throw new Exception("for requires: for var = start to end");
+
+            _startExpr = parts[equalIndex + 1];
+            _endExpr = parts[toIndex + 1];
+
+            if (stepIndex >= 0 && stepIndex + 1 < parts.Length)
+            {
+                _stepExpr = parts[stepIndex + 1];
+            }
+            else
+            {
+                _stepExpr = "1";
+            }
+        }
+
+        public void SetExecutor(ProgramExecutor executor)
+        {
+            _executor = executor;
+        }
+
+        public void SetStartLine(int startLine)
+        {
+            _startLine = startLine;
+        }
+
+        public void SetEndLine(int endLine)
+        {
+            _endLine = endLine;
+        }
+
+        public void Execute()
+        {
+            if (_executor == null)
+                throw new Exception("Executor not set for for command");
+
+            // Check if this is the first time (initializing the loop)
+            if (!_variables.HasInt("__for_" + _varName + "_initialized"))
+            {
+                // Initialize the loop variable
+                int startValue = _evaluator.EvaluateInt(_startExpr);
+                _variables.SetInt(_varName, startValue);
+                _variables.SetInt("__for_" + _varName + "_initialized", 1);
+                _variables.SetInt("__for_" + _varName + "_end", _evaluator.EvaluateInt(_endExpr));
+                _variables.SetInt("__for_" + _varName + "_step", _evaluator.EvaluateInt(_stepExpr));
+            }
+
+            // Check condition
+            int current = _variables.GetInt(_varName);
+            int end = _variables.GetInt("__for_" + _varName + "_end");
+            int step = _variables.GetInt("__for_" + _varName + "_step");
+
+            bool shouldContinue = (step > 0 && current <= end) || (step < 0 && current >= end);
+
+            if (!shouldContinue)
+            {
+                // Loop is done - clean up and jump to end
+                _variables.SetInt("__for_" + _varName + "_initialized", 0);
+                if (_endLine >= 0)
+                {
+                    _executor.SetLine(_endLine);
+                }
+            }
+            // Otherwise continue to next line
+        }
+    }
+
+    public class EndForCommand : IControlFlowCommand
+    {
+        private ProgramExecutor? _executor;
+        private int _forLine = -1;
+        private string _varName = "";
+
+        public void SetExecutor(ProgramExecutor executor)
+        {
+            _executor = executor;
+        }
+
+        public void SetForLine(int forLine)
+        {
+            _forLine = forLine;
+        }
+
+        public void SetVarName(string varName)
+        {
+            _varName = varName;
+        }
+
+        public void Execute()
+        {
+            if (_executor == null)
+                throw new Exception("Executor not set for end for command");
+
+            // Get the for command's variable store reference
+            // We need to access it through a shared reference
+            // For now, we'll use a workaround
+            if (_forLine >= 0)
+            {
+                _executor.SetLine(_forLine - 1); // Jump back to for (will re-evaluate and increment)
+            }
+        }
+    }
+
+
+    public class ElseCommand : IControlFlowCommand
+    {
+        private ProgramExecutor? _executor;
+        private int _endLine = -1;
+
+        public void SetExecutor(ProgramExecutor executor)
+        {
+            _executor = executor;
+        }
+
+        public void SetEndLine(int endLine)
+        {
+            _endLine = endLine;
+        }
+
+        public void Execute()
+        {
+            if (_executor == null)
+                throw new Exception("Executor not set for else command");
+
+            if (_endLine >= 0)
+            {
+                _executor.SetLine(_endLine);
+            }
+        }
+    }
+
+    public class EndIfCommand : ISimpleCommand
+    {
+        public void Execute()
+        {
+            // Just a marker
+        }
+    }
+
+    public class WhileCommand : IControlFlowCommand
+    {
+        private readonly VariableStore _variables;
+        private readonly ExpressionEvaluator _evaluator;
+        private readonly string _condition;
+        private ProgramExecutor? _executor;
+        private int _startLine = -1;
+        private int _endLine = -1;
+
+        public WhileCommand(VariableStore variables, ExpressionEvaluator evaluator, string[] parts)
+        {
+            _variables = variables;
+            _evaluator = evaluator;
+
+            if (parts.Length < 2)
+                throw new Exception("while requires a condition");
+
+            _condition = string.Join(" ", parts.Skip(1));
+        }
+
+        public void SetExecutor(ProgramExecutor executor)
+        {
+            _executor = executor;
+        }
+
+        public void SetStartLine(int startLine)
+        {
+            _startLine = startLine;
+        }
+
+        public void SetEndLine(int endLine)
+        {
+            _endLine = endLine;
+        }
+
+        public void Execute()
+        {
+            if (_executor == null)
+                throw new Exception("Executor not set for while command");
+
+            bool condition = EvaluateCondition(_condition);
+
+            if (!condition)
+            {
+                if (_endLine >= 0)
+                {
+                    _executor.SetLine(_endLine);
+                }
+            }
+        }
+
+        private bool EvaluateCondition(string condition)
+        {
+            condition = condition.Replace(" ", "");
+
+            if (condition.Contains("<"))
+            {
+                var parts = condition.Split('<');
+                double left = _evaluator.Evaluate(parts[0]);
+                double right = _evaluator.Evaluate(parts[1]);
+                return left < right;
+            }
+
+            if (condition.Contains(">"))
+            {
+                var parts = condition.Split('>');
+                double left = _evaluator.Evaluate(parts[0]);
+                double right = _evaluator.Evaluate(parts[1]);
+                return left > right;
+            }
+
+            double value = _evaluator.Evaluate(condition);
+            return Math.Abs(value) > 0.0001;
+        }
+    }
+
+    public class EndWhileCommand : IControlFlowCommand
+    {
+        private ProgramExecutor? _executor;
+        private int _whileLine = -1;
+
+        public void SetExecutor(ProgramExecutor executor)
+        {
+            _executor = executor;
+        }
+
+        public void SetWhileLine(int whileLine)
+        {
+            _whileLine = whileLine;
+        }
+
+        public void Execute()
+        {
+            if (_executor == null)
+                throw new Exception("Executor not set for end while command");
+
+            if (_whileLine >= 0)
+            {
+                _executor.SetLine(_whileLine - 1);
+            }
         }
     }
 }

@@ -43,12 +43,22 @@ namespace BOOSEapp
                 var commands = parser.Parse(cleaned);
                 Debug.WriteLine($"Parsed {commands.Count} commands");
 
-                // Execute commands
-                Debug.WriteLine("Executing commands...");
-                foreach (var command in commands)
+                // Create executor
+                var evaluator = new ExpressionEvaluator(variables);
+                var executor = new ProgramExecutor(commands, variables, evaluator);
+
+                // Link control flow commands to executor
+                foreach (var cmd in commands)
                 {
-                    command.Execute();
+                    if (cmd is IControlFlowCommand controlCmd)
+                    {
+                        controlCmd.SetExecutor(executor);
+                    }
                 }
+
+                // Execute program
+                Debug.WriteLine("Executing commands...");
+                executor.Execute();
 
                 // Display result
                 picCanvas.Image = (System.Drawing.Bitmap)canvas.getBitmap();

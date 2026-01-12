@@ -5,8 +5,7 @@ using System.Linq;
 namespace BOOSEapp
 {
     /// <summary>
-    /// Simple parser for BOOSE programs
-    /// Parses line by line and creates command objects
+    /// Simple parser for BOOSE programs with control flow support
     /// </summary>
     public class SimpleParser
     {
@@ -29,6 +28,7 @@ namespace BOOSEapp
                 .Where(l => l.Length > 0 && !l.StartsWith("//"))
                 .ToList();
 
+            // First pass: create all commands
             for (int i = 0; i < lines.Count; i++)
             {
                 try
@@ -43,7 +43,79 @@ namespace BOOSEapp
                 }
             }
 
+            // Second pass: link control flow commands
+            LinkControlFlow(commands);
+
             return commands;
+        }
+
+        private void LinkControlFlow(List<ISimpleCommand> commands)
+        {
+            var ifStack = new Stack<(int line, IfCommand cmd)>();
+            var whileStack = new Stack<(int line, WhileCommand cmd)>();
+
+            for (int i = 0; i < commands.Count; i++)
+            {
+                var command = commands[i];
+
+                if (command is IfCommand ifCmd)
+                {
+                    ifStack.Push((i, ifCmd));
+                }
+                else if (command is ElseCommand elseCmd)
+                {
+                    if (ifStack.Count == 0)
+                        throw new Exception($"'else' without matching 'if' at line {i + 1}");
+
+                    var (ifLine, ifCommand) = ifStack.Peek();
+                    ifCommand.SetElseLine(i);
+                }
+                else if (command is EndIfCommand)
+                {
+                    if (ifStack.Count == 0)
+                        throw new Exception($"'end if' without matching 'if' at line {i + 1}");
+
+                    var (ifLine, ifCommand) = ifStack.Pop();
+                    ifCommand.SetEndLine(i);
+
+                    // Also set end for else if present
+                    if (i > 0 && commands[i - 1] is ElseCommand previousElse)
+                    {
+                        previousElse.SetEndLine(i);
+                    }
+                    else
+                    {
+                        // Look backwards for else
+                        for (int j = ifLine + 1; j < i; j++)
+                        {
+                            if (commands[j] is ElseCommand ec)
+                            {
+                                ec.SetEndLine(i);
+                                break;
+                            }
+                        }
+                    }
+                }
+                else if (command is WhileCommand whileCmd)
+                {
+                    whileStack.Push((i, whileCmd));
+                    whileCmd.SetStartLine(i);
+                }
+                else if (command is EndWhileCommand endWhileCmd)
+                {
+                    if (whileStack.Count == 0)
+                        throw new Exception($"'end while' without matching 'while' at line {i + 1}");
+
+                    var (whileLine, whileCommand) = whileStack.Pop();
+                    whileCommand.SetEndLine(i);
+                    endWhileCmd.SetWhileLine(whileLine);
+                }
+            }
+
+            if (ifStack.Count > 0)
+                throw new Exception("Unmatched 'if' statement");
+            if (whileStack.Count > 0)
+                throw new Exception("Unmatched 'while' statement");
         }
 
         private ISimpleCommand? ParseLine(string line)
@@ -53,13 +125,33 @@ namespace BOOSEapp
 
             string command = parts[0].ToLower();
 
+            // Control flow
+            if (command == "if")
+                return new IfCommand(_variables, _evaluator, parts);
+            if (command == "else")
+                return new ElseCommand();
+            if (command == "end")
+            {
+                if (parts.Length >= 2)
+                {
+                    string endType = parts[1].ToLower();
+                    if (endType == "if") return new EndIfCommand();
+                    if (endType == "while") return new EndWhileCommand();
+                }
+                throw new Exception("'end' requires type: 'end if' or 'end while'");
+            }
+            if (command == "endif")
+                return new EndIfCommand();
+            if (command == "while")
+                return new WhileCommand(_variables, _evaluator, parts);
+            if (command == "endwhile")
+                return new EndWhileCommand();
+
             // Variable declarations
             if (command == "int")
                 return new IntCommand(_variables, _evaluator, parts);
             if (command == "real")
                 return new RealCommand(_variables, _evaluator, parts);
-            if (command == "boolean")
-                return new BooleanCommand(_variables, _evaluator, parts);
 
             // Arrays
             if (command == "array")
@@ -89,7 +181,7 @@ namespace BOOSEapp
             if (command == "write" || command == "writetext")
                 return new WriteCommand(_canvas, _variables, _evaluator, line);
 
-            // Variable assignment (e.g., "width = 2*radius")
+            // Variable assignment
             if (parts.Length >= 3 && parts[1] == "=")
                 return new AssignCommand(_variables, _evaluator, parts);
 
