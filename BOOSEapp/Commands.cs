@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace BOOSEapp
 {
@@ -635,7 +636,6 @@ namespace BOOSEapp
     {
         public void Execute()
         {
-            // Just a marker
         }
     }
 
@@ -879,6 +879,187 @@ namespace BOOSEapp
             {
                 _executor.SetLine(_forLine - 1);
             }
+        }
+    }
+
+    // ==================== METHOD COMMANDS ====================
+
+    public class MethodCommand : IControlFlowCommand
+    {
+        private readonly MethodStore _methodStore;
+        private readonly string _returnType;
+        private readonly string _name;
+        private readonly List<(string type, string name)> _parameters;
+        private ProgramExecutor? _executor;
+        private int _endLine = -1;
+
+        public MethodCommand(MethodStore methodStore, string[] parts)
+        {
+            _methodStore = methodStore;
+            _parameters = new List<(string type, string name)>();
+
+            if (parts.Length < 3)
+                throw new Exception("method requires: method returnType name [parameters]");
+
+            _returnType = parts[1].ToLower();
+            _name = parts[2];
+
+            for (int i = 3; i < parts.Length; i += 2)
+            {
+                if (i + 1 >= parts.Length) break;
+                string paramType = parts[i].ToLower();
+                string paramName = parts[i + 1];
+                _parameters.Add((paramType, paramName));
+            }
+        }
+
+        public void SetExecutor(ProgramExecutor executor)
+        {
+            _executor = executor;
+        }
+
+        public void SetEndLine(int endLine)
+        {
+            _endLine = endLine;
+        }
+
+        public string GetName()
+        {
+            return _name;
+        }
+
+        public List<(string type, string name)> GetParameters()
+        {
+            return _parameters;
+        }
+
+        public void Execute()
+        {
+            if (_executor == null)
+                throw new Exception("Executor not set for method command");
+
+            if (_endLine >= 0)
+            {
+                _executor.SetLine(_endLine);
+            }
+        }
+
+        public void RegisterMethod(int startLine, int endLine)
+        {
+            var method = new MethodDefinition
+            {
+                Name = _name,
+                ReturnType = _returnType,
+                Parameters = _parameters,
+                StartLine = startLine,
+                EndLine = endLine
+            };
+            _methodStore.AddMethod(_name, method);
+        }
+    }
+
+    public class EndMethodCommand : IControlFlowCommand
+    {
+        private readonly VariableStore _variables;
+        private ProgramExecutor? _executor;
+
+        public EndMethodCommand(VariableStore variables)
+        {
+            _variables = variables;
+        }
+
+        public void SetExecutor(ProgramExecutor executor)
+        {
+            _executor = executor;
+        }
+
+        public void Execute()
+        {
+            if (_executor == null)
+                throw new Exception("Executor not set for end method");
+
+            if (_variables.HasInt("__return_line"))
+            {
+                int returnLine = _variables.GetInt("__return_line");
+                _executor.SetLine(returnLine);
+            }
+        }
+    }
+
+    public class CallCommand : IControlFlowCommand
+    {
+        private readonly VariableStore _variables;
+        private readonly MethodStore _methodStore;
+        private readonly ExpressionEvaluator _evaluator;
+        private readonly string _methodName;
+        private readonly List<string> _arguments;
+        private ProgramExecutor? _executor;
+
+        public CallCommand(VariableStore variables, MethodStore methodStore,
+                          ExpressionEvaluator evaluator, string[] parts)
+        {
+            _variables = variables;
+            _methodStore = methodStore;
+            _evaluator = evaluator;
+            _arguments = new List<string>();
+
+            if (parts.Length < 2)
+                throw new Exception("call requires: call methodName [arguments]");
+
+            _methodName = parts[1];
+
+            for (int i = 2; i < parts.Length; i++)
+            {
+                _arguments.Add(parts[i]);
+            }
+        }
+
+        public void SetExecutor(ProgramExecutor executor)
+        {
+            _executor = executor;
+        }
+
+        public void Execute()
+        {
+            if (_executor == null)
+                throw new Exception("Executor not set for call command");
+
+            var method = _methodStore.GetMethod(_methodName);
+
+            if (_arguments.Count != method.Parameters.Count)
+                throw new Exception($"Method '{_methodName}' expects {method.Parameters.Count} arguments, got {_arguments.Count}");
+
+            int returnLine = _executor.GetCurrentLine();
+
+            for (int i = 0; i < method.Parameters.Count; i++)
+            {
+                var (paramType, paramName) = method.Parameters[i];
+                string argValue = _arguments[i];
+
+                if (paramType == "int")
+                {
+                    int value = _evaluator.EvaluateInt(argValue);
+                    _variables.SetInt(paramName, value);
+                }
+                else if (paramType == "real")
+                {
+                    double value = _evaluator.Evaluate(argValue);
+                    _variables.SetReal(paramName, value);
+                }
+            }
+
+            if (method.ReturnType == "int")
+            {
+                _variables.SetInt(_methodName, 0);
+            }
+            else if (method.ReturnType == "real")
+            {
+                _variables.SetReal(_methodName, 0.0);
+            }
+
+            _variables.SetInt("__return_line", returnLine);
+
+            _executor.SetLine(method.StartLine);
         }
     }
 }
