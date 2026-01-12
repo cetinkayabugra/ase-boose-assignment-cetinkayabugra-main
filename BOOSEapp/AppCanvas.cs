@@ -1,4 +1,5 @@
-﻿using System.Drawing;
+﻿using System;
+using System.Drawing;
 using BOOSE;
 
 namespace BOOSEapp
@@ -7,14 +8,14 @@ namespace BOOSEapp
     /// Implementation of BOOSE ICanvas for drawing on a Bitmap.
     /// No restrictions – everything draws normally.
     /// </summary>
-    public class AppCanvas : ICanvas
+    public class AppCanvas : ICanvas, IDisposable
     {
         private Bitmap canvasBitmap;
         private Graphics g;
         private Pen pen = new Pen(Color.Black);
-
         private int xPos;
         private int yPos;
+        private bool disposed = false;
 
         public AppCanvas(int width, int height)
         {
@@ -48,20 +49,16 @@ namespace BOOSEapp
         public void Circle(int radius, bool filled)
         {
             Rectangle r = new Rectangle(xPos - radius, yPos - radius, radius * 2, radius * 2);
-
             if (filled)
                 g.FillEllipse(new SolidBrush(pen.Color), r);
-
             g.DrawEllipse(pen, r);
         }
 
         public void Rect(int width, int height, bool filled)
         {
             Rectangle r = new Rectangle(xPos, yPos, width, height);
-
             if (filled)
                 g.FillRectangle(new SolidBrush(pen.Color), r);
-
             g.DrawRectangle(pen, r);
         }
 
@@ -70,7 +67,6 @@ namespace BOOSEapp
             Point p1 = new Point(xPos + width / 2, yPos);
             Point p2 = new Point(xPos, yPos + height);
             Point p3 = new Point(xPos + width, yPos + height);
-
             g.DrawPolygon(pen, new[] { p1, p2, p3 });
         }
 
@@ -98,6 +94,10 @@ namespace BOOSEapp
 
         public void Set(int width, int height)
         {
+            // Dispose old graphics and bitmap
+            g?.Dispose();
+            canvasBitmap?.Dispose();
+
             canvasBitmap = new Bitmap(width, height);
             g = Graphics.FromImage(canvasBitmap);
             Clear();
@@ -106,6 +106,34 @@ namespace BOOSEapp
         public object getBitmap()
         {
             return canvasBitmap;
+        }
+
+        // Implement IDisposable
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!disposed)
+            {
+                if (disposing)
+                {
+                    // Dispose managed resources
+                    g?.Dispose();
+                    pen?.Dispose();
+                    canvasBitmap?.Dispose();
+                }
+                disposed = true;
+            }
+        }
+
+        // Destructor
+        ~AppCanvas()
+        {
+            Dispose(false);
         }
     }
 }

@@ -2,16 +2,14 @@
 using System.Diagnostics;
 using System.Linq;
 using System.Windows.Forms;
-using BOOSE;
 
 namespace BOOSEapp
 {
     public partial class Form1 : Form
     {
         private AppCanvas canvas = null!;
-        private AppCommandFactory factory = null!;
-        private StoredProgram program = null!;
-        private Parser parser = null!;
+        private VariableStore variables = null!;
+        private SimpleParser parser = null!;
 
         public Form1()
         {
@@ -21,14 +19,18 @@ namespace BOOSEapp
 
         private void btnRun_Click(object sender, EventArgs e)
         {
+            canvas?.Dispose();
+
+            // Create fresh instances
             canvas = new AppCanvas(picCanvas.Width, picCanvas.Height);
-            factory = new AppCommandFactory();
-            program = new StoredProgram(canvas);
-            parser = new Parser(factory, program);
-            Debug.WriteLine(AboutBOOSE.about());
+            variables = new VariableStore();
+            parser = new SimpleParser(canvas, variables);
+
+            Debug.WriteLine("=== BOOSE Program Starting ===");
 
             try
             {
+                // Clean program text
                 string cleaned = string.Join("\n",
                     txtProgram.Text
                         .Replace("\r", "")
@@ -36,14 +38,26 @@ namespace BOOSEapp
                         .Where(l => l.Trim().Length > 0)
                 );
 
-                parser.ParseProgram(cleaned);
-                program.Run();
+                // Parse program
+                Debug.WriteLine("Parsing program...");
+                var commands = parser.Parse(cleaned);
+                Debug.WriteLine($"Parsed {commands.Count} commands");
 
-                picCanvas.Image = (Bitmap)canvas.getBitmap();
+                // Execute commands
+                Debug.WriteLine("Executing commands...");
+                foreach (var command in commands)
+                {
+                    command.Execute();
+                }
+
+                // Display result
+                picCanvas.Image = (System.Drawing.Bitmap)canvas.getBitmap();
+                Debug.WriteLine("Program completed successfully!");
             }
             catch (Exception ex)
             {
-                MessageBox.Show(ex.Message, "Runtime error");
+                Debug.WriteLine($"Error: {ex.Message}");
+                MessageBox.Show(ex.Message, "Runtime Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
         }
     }
