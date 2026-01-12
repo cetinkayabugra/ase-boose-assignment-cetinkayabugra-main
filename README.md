@@ -76,5 +76,39 @@ These are for convinience. Check on myBeckett in the Assessment directory for an
 
 	Remember that BOOSE.DLL maybe updated, as it may have bugs in it, or new features may be added.  
 	Keep updated on Discord and make sure you always have the latest version in your project.
+
+
+
+
+## How to Run
+
+1. Open the solution in Visual Studio
+2. Build the solution (Ctrl + Shift + B)
+3. Run the application
+4. Enter BOOSE commands into the input window
+5. Click Run to execute the program
+
+
+
+## Supported Commands
+
+- moveto x,y
+- drawto x,y
+- circle radius
+- rect width,height
+- pen r,g,b
+- write expression
+- int variable = value
+- real variable = value
+- while condition
+- end
+
+## Known Limitations
+
+- No user-defined functions
+- Limited error recovery for malformed input
+- Expressions evaluated at runtime only
+
+
  
 ### V1.0
