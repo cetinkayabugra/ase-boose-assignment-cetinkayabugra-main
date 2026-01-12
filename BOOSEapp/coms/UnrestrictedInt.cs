@@ -3,10 +3,18 @@ using BOOSE;
 namespace BOOSEapp
 {
     /// <summary>
-    /// Unrestricted Int variable class - no limit on number of variables
+    /// Represents an unrestricted integer variable within the BOOSE interpreter.
     /// </summary>
+    /// <remarks>
+    /// This class overrides the default BOOSE integer handling in order to
+    /// remove restrictions on the number of integer variables that can be
+    /// declared in a program.
+    /// </remarks>
     public class UnrestrictedInt : Evaluation
     {
+        /// <summary>
+        /// Initializes a new unrestricted integer variable.
+        /// </summary>
         public UnrestrictedInt()
         {
             
