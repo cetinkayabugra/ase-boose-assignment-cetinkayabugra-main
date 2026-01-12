@@ -90,6 +90,18 @@ These are for convinience. Check on myBeckett in the Assessment directory for an
 
 
 
+## Supported Commands
+
+- moveto x,y
+- drawto x,y
+- circle radius
+- rect width,height
+- pen r,g,b
+- write expression
+- int variable = value
+- real variable = value
+- while condition
+- end
 
 
 
