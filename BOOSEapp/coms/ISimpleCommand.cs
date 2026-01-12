@@ -1,3 +1,11 @@
+/*
+ * File: ISimpleCommand.cs
+ * Author: Bugra Cetinkaya
+ * Purpose: Defines core command interfaces used by the BOOSE
+ *          interpreter and execution engine.
+ * Notes: Interfaces separate execution logic from parsing logic.
+ */
+
 namespace BOOSEapp
 {
     /// <summary>
