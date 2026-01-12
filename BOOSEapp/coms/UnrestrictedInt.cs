@@ -9,15 +9,15 @@ namespace BOOSEapp
     {
         public UnrestrictedInt()
         {
-            // No restriction check
+            
         }
-
+        //COMPILE PHASE
         public override void Compile()
         {
             base.Compile();
             base.Program.AddVariable(this);
         }
-
+        //EXECUTE PHASE EVALUATES THE EXPRESSION AND UPDATES THE VARIABLE
         public override void Execute()
         {
             base.Execute();
