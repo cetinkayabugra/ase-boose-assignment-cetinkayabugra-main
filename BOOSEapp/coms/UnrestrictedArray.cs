@@ -1,3 +1,14 @@
+
+/*
+ * File: UnrestrictedArray.cs
+ * Author: Bugra Cetinkaya
+ * Purpose: Provides unrestricted array support for BOOSE programs,
+ *          bypassing original BOOSE limitations.
+ * Date: 2026-01-12
+ */
+
+
+
 using System;
 using System.Collections;
 using BOOSE;
