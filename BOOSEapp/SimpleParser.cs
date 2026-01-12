@@ -53,6 +53,7 @@ namespace BOOSEapp
         {
             var ifStack = new Stack<(int line, IfCommand cmd)>();
             var whileStack = new Stack<(int line, WhileCommand cmd)>();
+            var forStack = new Stack<(int line, ForCommand cmd)>();
 
             for (int i = 0; i < commands.Count; i++)
             {
@@ -78,14 +79,12 @@ namespace BOOSEapp
                     var (ifLine, ifCommand) = ifStack.Pop();
                     ifCommand.SetEndLine(i);
 
-                    // Also set end for else if present
                     if (i > 0 && commands[i - 1] is ElseCommand previousElse)
                     {
                         previousElse.SetEndLine(i);
                     }
                     else
                     {
-                        // Look backwards for else
                         for (int j = ifLine + 1; j < i; j++)
                         {
                             if (commands[j] is ElseCommand ec)
@@ -110,12 +109,28 @@ namespace BOOSEapp
                     whileCommand.SetEndLine(i);
                     endWhileCmd.SetWhileLine(whileLine);
                 }
+                else if (command is ForCommand forCmd)
+                {
+                    forStack.Push((i, forCmd));
+                }
+                else if (command is EndForCommand endForCmd)
+                {
+                    if (forStack.Count == 0)
+                        throw new Exception($"'end for' without matching 'for' at line {i + 1}");
+
+                    var (forLine, forCommand) = forStack.Pop();
+                    forCommand.SetEndLine(i);
+                    endForCmd.SetForLine(forLine);
+                    endForCmd.SetVarName(forCommand.GetVarName());
+                }
             }
 
             if (ifStack.Count > 0)
                 throw new Exception("Unmatched 'if' statement");
             if (whileStack.Count > 0)
                 throw new Exception("Unmatched 'while' statement");
+            if (forStack.Count > 0)
+                throw new Exception("Unmatched 'for' statement");
         }
 
         private ISimpleCommand? ParseLine(string line)
@@ -137,8 +152,9 @@ namespace BOOSEapp
                     string endType = parts[1].ToLower();
                     if (endType == "if") return new EndIfCommand();
                     if (endType == "while") return new EndWhileCommand();
+                    if (endType == "for") return new EndForCommand(_variables);
                 }
-                throw new Exception("'end' requires type: 'end if' or 'end while'");
+                throw new Exception("'end' requires type: 'end if', 'end while', or 'end for'");
             }
             if (command == "endif")
                 return new EndIfCommand();
@@ -146,6 +162,10 @@ namespace BOOSEapp
                 return new WhileCommand(_variables, _evaluator, parts);
             if (command == "endwhile")
                 return new EndWhileCommand();
+            if (command == "for")
+                return new ForCommand(_variables, _evaluator, parts);
+            if (command == "endfor")
+                return new EndForCommand(_variables);
 
             // Variable declarations
             if (command == "int")
