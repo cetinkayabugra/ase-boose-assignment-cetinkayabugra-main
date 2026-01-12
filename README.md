@@ -103,6 +103,11 @@ These are for convinience. Check on myBeckett in the Assessment directory for an
 - while condition
 - end
 
+## Known Limitations
+
+- No user-defined functions
+- Limited error recovery for malformed input
+- Expressions evaluated at runtime only
 
 
  
